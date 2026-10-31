@@ -12,23 +12,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <script>
-      // Automatically redirect to built dist directory if loaded from static GitHub Pages root
-      if (window.location.hostname.includes('github.io') && !window.location.pathname.includes('/dist/')) {
-        var p = window.location.pathname;
-        if (p.endsWith('index.html')) {
-          p = p.substring(0, p.lastIndexOf('index.html'));
-        }
-        if (!p.endsWith('/')) {
-          p += '/';
-        }
-        window.location.replace(p + 'dist/' + window.location.search + window.location.hash);
-      }
-    </script>
   </head>
   <body class="bg-emerald-950/5 text-stone-800 antialiased font-['Cairo',sans-serif] selection:bg-emerald-600 selection:text-white">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+
+    <script type="module">
+      // On static hosting (e.g. GitHub Pages) load the compiled bundle directly
+      if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:') {
+        import('./assets/index-C23n4e6P.js');
+      } else {
+        // In development server
+        import('/src/main.tsx');
+      }
+    </script>
   </body>
 </html>
 

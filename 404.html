@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نباتاتي - جاري التحميل...</title>
+    <script>
+      // Single Page App redirect for GitHub Pages
+      var path = window.location.pathname;
+      var repo = '/hadegate';
+      if (path.startsWith(repo)) {
+        window.location.replace(repo + '/');
+      } else {
+        window.location.replace('./');
+      }
+    </script>
+  </head>
+  <body class="bg-emerald-950/5 text-stone-800 text-center p-8 font-sans">
+    <p>جاري تحويلك إلى تطبيق نباتاتي...</p>
+  </body>
+</html>
