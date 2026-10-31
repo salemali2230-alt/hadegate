@@ -1,7 +1,9 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
@@ -284,18 +286,39 @@ app.post('/api/chat-plant', async (req: Request, res: Response) => {
 
 // Production or Vite middleware integration
 async function startServer() {
-  if (process.env.NODE_ENV === 'production') {
+  // Development mode only when explicitly running npm run dev
+  const isDev = process.env.npm_lifecycle_event === 'dev';
+  const distHtmlPath = path.join(__dirname, 'dist', 'index.html');
+  const distExists = fs.existsSync(distHtmlPath);
+
+  // If not in development and dist exists, always serve pre-built production assets
+  if (!isDev && distExists) {
+    console.log('Serving production static build from dist/...');
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      res.sendFile(distHtmlPath);
     });
   } else {
+    console.log('Starting in development mode with Vite middleware...');
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      try {
+        let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        if (vite.ssrFixStacktrace) {
+          vite.ssrFixStacktrace(e);
+        }
+        next(e);
+      }
+    });
   }
 
   app.listen(PORT, () => {
