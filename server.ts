@@ -12,7 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Cloud Run nginx proxies to DEFAULT_APP_PORT (3000). Never use PORT directly as PORT=8080 belongs to nginx.
+const PORT = Number(process.env.DEFAULT_APP_PORT) || 3000;
 
 // Body parser with support for base64 plant image uploads
 app.use(express.json({ limit: '30mb' }));
@@ -286,20 +287,22 @@ app.post('/api/chat-plant', async (req: Request, res: Response) => {
 
 // Production or Vite middleware integration
 async function startServer() {
-  // Development mode only when explicitly running npm run dev
-  const isDev = process.env.npm_lifecycle_event === 'dev';
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    (Boolean(process.env.K_SERVICE) && !process.env.K_SERVICE?.startsWith('ais-dev')) ||
+    process.env.npm_lifecycle_event === 'start';
+
   const distHtmlPath = path.join(__dirname, 'dist', 'index.html');
   const distExists = fs.existsSync(distHtmlPath);
 
-  // If not in development and dist exists, always serve pre-built production assets
-  if (!isDev && distExists) {
-    console.log('Serving production static build from dist/...');
+  if (isProduction && distExists) {
+    console.log(`[Production] Serving static files from dist/... on port ${PORT}`);
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req, res) => {
       res.sendFile(distHtmlPath);
     });
   } else {
-    console.log('Starting in development mode with Vite middleware...');
+    console.log(`[Development] Mounting Vite middleware on port ${PORT}...`);
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -321,8 +324,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server successfully listening on http://0.0.0.0:${PORT}`);
   });
 }
 
