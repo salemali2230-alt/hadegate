@@ -15,16 +15,19 @@ import {
 import { CameraCapture } from './CameraCapture';
 import { PlantData } from '../types/plant';
 import { SAMPLE_IRAQI_PLANTS, SamplePlantItem } from '../data/samplePlants';
-import { getCustomApiKey, setCustomApiKey, identifyPlantDirectClient } from '../utils/geminiClient';
+import { getCustomApiKey, identifyPlantDirectClient } from '../utils/geminiClient';
+import { Key } from 'lucide-react';
 
 interface ImageScannerProps {
   onPlantIdentified: (plant: PlantData, imageBase64: string) => void;
   onSelectSamplePlant: (sample: SamplePlantItem) => void;
+  onOpenKeyModal: () => void;
 }
 
 export const ImageScanner: React.FC<ImageScannerProps> = ({
   onPlantIdentified,
-  onSelectSamplePlant
+  onSelectSamplePlant,
+  onOpenKeyModal
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -67,9 +70,6 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
     e.preventDefault();
   };
 
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [customKeyInput, setCustomKeyInput] = useState('');
-
   const handleIdentify = async (overrideApiKey?: string) => {
     if (!selectedImage) return;
 
@@ -103,7 +103,7 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
             if (activeKey) {
               plantData = await identifyPlantDirectClient(selectedImage, activeKey, userNote.trim() || undefined);
             } else {
-              setShowKeyModal(true);
+              onOpenKeyModal();
               setIsAnalyzing(false);
               return;
             }
@@ -118,7 +118,7 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
             if (activeKey) {
               plantData = await identifyPlantDirectClient(selectedImage, activeKey, userNote.trim() || undefined);
             } else {
-              setShowKeyModal(true);
+              onOpenKeyModal();
               setIsAnalyzing(false);
               return;
             }
@@ -337,12 +337,22 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
 
         {/* Error message */}
         {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 text-xs sm:text-sm">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="font-bold">تنبيه: </span>
-              {errorMessage}
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-800 text-xs sm:text-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-bold">تنبيه: </span>
+                {errorMessage}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={onOpenKeyModal}
+              className="px-3.5 py-2 bg-rose-700 hover:bg-rose-800 active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-end sm:self-auto shadow-xs"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>تغيير أو مسح المفتاح</span>
+            </button>
           </div>
         )}
       </div>
@@ -400,62 +410,6 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
           }}
           onClose={() => setIsCameraOpen(false)}
         />
-      )}
-
-      {/* GitHub Pages Gemini Key Modal */}
-      {showKeyModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-stone-200 text-right">
-            <div className="flex items-center gap-2.5 text-emerald-800">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-lg text-stone-900">تشغيل الذكاء الاصطناعي عبر GitHub Pages</h3>
-            </div>
-
-            <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              أنت تستخدم التطبيق عبر استضافة <strong>GitHub Pages</strong> الثابتة. لتفعيل التعرف التلقائي على الصور الجديدة عبر الذكاء الاصطناعي مباشرة من جهازك، يرجى إدخال مفتاح <strong>Gemini API</strong> المجاني:
-            </p>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-stone-700 block">مفتاح Gemini API (مجاني):</label>
-              <input
-                type="password"
-                value={customKeyInput}
-                onChange={(e) => setCustomKeyInput(e.target.value)}
-                placeholder="AIzaSy..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono text-left"
-                dir="ltr"
-              />
-              <span className="text-[11px] text-stone-500 block pt-1">
-                المفتاح يُحفظ محلياً في متصفح جهازك فقط ولا يغادره. يمكنك الحصول على مفتاح مجاناً من Google AI Studio.
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (customKeyInput.trim()) {
-                    setCustomApiKey(customKeyInput.trim());
-                    setShowKeyModal(false);
-                    handleIdentify(customKeyInput.trim());
-                  }
-                }}
-                disabled={!customKeyInput.trim()}
-                className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold transition"
-              >
-                حفظ وبدء الفحص
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowKeyModal(false)}
-                className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs sm:text-sm font-semibold transition"
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

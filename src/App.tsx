@@ -9,14 +9,18 @@ import { ImageScanner } from './components/ImageScanner';
 import { IraqiPlantLibrary } from './components/IraqiPlantLibrary';
 import { SavedReportsView } from './components/SavedReportsView';
 import { PlantReportModal } from './components/PlantReportModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { PlantData, SavedPlantReport } from './types/plant';
 import { getSavedReports } from './utils/storage';
+import { getCustomApiKey } from './utils/geminiClient';
 import { SamplePlantItem } from './data/samplePlants';
-import { Leaf, Heart, Shield, Sparkles } from 'lucide-react';
+import { Leaf, Shield, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'scanner' | 'library' | 'saved'>('scanner');
   const [savedReports, setSavedReports] = useState<SavedPlantReport[]>([]);
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [hasCustomKey, setHasCustomKey] = useState(false);
   
   // Active modal report state
   const [activeModalData, setActiveModalData] = useState<{
@@ -27,10 +31,11 @@ export default function App() {
     location?: string;
   } | null>(null);
 
-  // Load saved reports on mount
+  // Load saved reports and API key status on mount
   useEffect(() => {
     const list = getSavedReports();
     setSavedReports(list);
+    setHasCustomKey(Boolean(getCustomApiKey()));
   }, []);
 
   const handlePlantIdentified = (plant: PlantData, imageBase64: string) => {
@@ -69,6 +74,8 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         savedCount={savedReports.length}
+        onOpenKeyModal={() => setIsKeyModalOpen(true)}
+        hasCustomKey={hasCustomKey}
       />
 
       {/* Main Content View */}
@@ -77,6 +84,7 @@ export default function App() {
           <ImageScanner
             onPlantIdentified={handlePlantIdentified}
             onSelectSamplePlant={handleSelectSample}
+            onOpenKeyModal={() => setIsKeyModalOpen(true)}
           />
         )}
 
@@ -107,6 +115,13 @@ export default function App() {
         />
       )}
 
+      {/* Gemini API Key Management Modal */}
+      <ApiKeyModal
+        isOpen={isKeyModalOpen}
+        onClose={() => setIsKeyModalOpen(false)}
+        onKeyChange={(k) => setHasCustomKey(Boolean(k))}
+      />
+
       {/* Footer */}
       <footer className="mt-auto border-t border-stone-200/80 bg-white py-8 px-4 text-center text-xs text-stone-600 print:hidden">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -118,6 +133,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4 text-stone-600">
+            <button
+              onClick={() => setIsKeyModalOpen(true)}
+              className="text-stone-600 hover:text-emerald-700 transition underline underline-offset-2 flex items-center gap-1"
+            >
+              <span>إدارة مفتاح Gemini API</span>
+            </button>
+            <span>•</span>
             <span className="flex items-center gap-1">
               <Shield className="w-3.5 h-3.5 text-emerald-600" />
               التقارير محفوظة محلياً في جهازك 100%

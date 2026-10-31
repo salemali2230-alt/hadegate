@@ -1,16 +1,19 @@
-import React from 'react';
-import { Leaf, Camera, BookOpen, Bookmark } from 'lucide-react';
+import { Leaf, Camera, BookOpen, Bookmark, Key } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: 'scanner' | 'library' | 'saved';
   onTabChange: (tab: 'scanner' | 'library' | 'saved') => void;
   savedCount: number;
+  onOpenKeyModal: () => void;
+  hasCustomKey: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
-  savedCount
+  savedCount,
+  onOpenKeyModal,
+  hasCustomKey
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-stone-200/80 shadow-2xs print:hidden">
@@ -81,6 +84,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}>
                 {savedCount}
               </span>
+            )}
+          </button>
+
+          {/* API Key Settings Button */}
+          <button
+            type="button"
+            onClick={onOpenKeyModal}
+            className={`p-2 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
+              hasCustomKey
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100 hover:text-stone-900'
+            }`}
+            title="إدارة مفتاح Gemini API"
+          >
+            <Key className="w-4 h-4 text-emerald-600" />
+            <span className="hidden sm:inline">مفتاح API</span>
+            {hasCustomKey && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="مفتاح محفوظ" />
             )}
           </button>
         </nav>
