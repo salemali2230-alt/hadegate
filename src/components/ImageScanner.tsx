@@ -15,6 +15,7 @@ import {
 import { CameraCapture } from './CameraCapture';
 import { PlantData } from '../types/plant';
 import { SAMPLE_IRAQI_PLANTS, SamplePlantItem } from '../data/samplePlants';
+import { getCustomApiKey, setCustomApiKey, identifyPlantDirectClient } from '../utils/geminiClient';
 
 interface ImageScannerProps {
   onPlantIdentified: (plant: PlantData, imageBase64: string) => void;
@@ -66,32 +67,68 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
     e.preventDefault();
   };
 
-  const handleIdentify = async () => {
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+
+  const handleIdentify = async (overrideApiKey?: string) => {
     if (!selectedImage) return;
 
     setIsAnalyzing(true);
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/identify-plant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: selectedImage,
-          userNote: userNote.trim() || undefined,
-        }),
-      });
+      let plantData: PlantData | null = null;
+      const isGitHubPages = window.location.hostname.includes('github.io');
+      const activeKey = overrideApiKey || getCustomApiKey();
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'فشل التعرف على النبات، يرجى المحاولة مرة أخرى.');
+      // If running on GitHub Pages (static host without backend) and we have an API key, use direct client
+      if (isGitHubPages && activeKey) {
+        plantData = await identifyPlantDirectClient(selectedImage, activeKey, userNote.trim() || undefined);
+      } else {
+        // Try server API route first
+        try {
+          const response = await fetch('/api/identify-plant', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageBase64: selectedImage,
+              userNote: userNote.trim() || undefined,
+            }),
+          });
+
+          if (response.status === 404 && isGitHubPages) {
+            // Static host detected
+            if (activeKey) {
+              plantData = await identifyPlantDirectClient(selectedImage, activeKey, userNote.trim() || undefined);
+            } else {
+              setShowKeyModal(true);
+              setIsAnalyzing(false);
+              return;
+            }
+          } else if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'فشل التعرف على النبات، يرجى المحاولة مرة أخرى.');
+          } else {
+            plantData = await response.json();
+          }
+        } catch (fetchErr: any) {
+          if (isGitHubPages) {
+            if (activeKey) {
+              plantData = await identifyPlantDirectClient(selectedImage, activeKey, userNote.trim() || undefined);
+            } else {
+              setShowKeyModal(true);
+              setIsAnalyzing(false);
+              return;
+            }
+          } else {
+            throw fetchErr;
+          }
+        }
       }
 
-      const plantData: PlantData = await response.json();
-
-      if (!plantData.isPlant) {
+      if (!plantData || !plantData.isPlant) {
         setErrorMessage('لم يتم العثور على نبات واضح في هذه الصورة. يرجى التقاط صورة لأوراق، أزهار، أو أغصان النبات.');
         setIsAnalyzing(false);
         return;
@@ -254,7 +291,7 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
-                    onClick={handleIdentify}
+                    onClick={() => handleIdentify()}
                     disabled={isAnalyzing}
                     className="w-full sm:flex-1 py-3.5 px-6 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white font-extrabold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-xl shadow-emerald-600/25"
                   >
@@ -363,6 +400,62 @@ export const ImageScanner: React.FC<ImageScannerProps> = ({
           }}
           onClose={() => setIsCameraOpen(false)}
         />
+      )}
+
+      {/* GitHub Pages Gemini Key Modal */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-stone-200 text-right">
+            <div className="flex items-center gap-2.5 text-emerald-800">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-bold text-lg text-stone-900">تشغيل الذكاء الاصطناعي عبر GitHub Pages</h3>
+            </div>
+
+            <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+              أنت تستخدم التطبيق عبر استضافة <strong>GitHub Pages</strong> الثابتة. لتفعيل التعرف التلقائي على الصور الجديدة عبر الذكاء الاصطناعي مباشرة من جهازك، يرجى إدخال مفتاح <strong>Gemini API</strong> المجاني:
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-stone-700 block">مفتاح Gemini API (مجاني):</label>
+              <input
+                type="password"
+                value={customKeyInput}
+                onChange={(e) => setCustomKeyInput(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono text-left"
+                dir="ltr"
+              />
+              <span className="text-[11px] text-stone-500 block pt-1">
+                المفتاح يُحفظ محلياً في متصفح جهازك فقط ولا يغادره. يمكنك الحصول على مفتاح مجاناً من Google AI Studio.
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (customKeyInput.trim()) {
+                    setCustomApiKey(customKeyInput.trim());
+                    setShowKeyModal(false);
+                    handleIdentify(customKeyInput.trim());
+                  }
+                }}
+                disabled={!customKeyInput.trim()}
+                className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold transition"
+              >
+                حفظ وبدء الفحص
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs sm:text-sm font-semibold transition"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
